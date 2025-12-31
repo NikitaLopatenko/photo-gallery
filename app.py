@@ -1,7 +1,6 @@
 import streamlit as st
 import os
 import pickle
-import torch
 from sentence_transformers import SentenceTransformer, util
 
 # 1. Page Config
