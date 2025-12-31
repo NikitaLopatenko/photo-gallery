@@ -1,0 +1,5 @@
+streamlit
+watchdog
+sentence-transformers
+pillow
+torch

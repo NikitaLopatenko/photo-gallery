@@ -1,36 +1,67 @@
 import streamlit as st
 import os
+import pickle
+import torch
+from sentence_transformers import SentenceTransformer, util
 
-# 1. Page Configuration (Tab Title & Icon)
-st.set_page_config(page_title="My Photo Gallery", page_icon="📸", layout="wide")
+# 1. Page Config
+st.set_page_config(page_title="Smart Family Gallery", page_icon="🧠", layout="wide")
+st.title("🧠 AI Photo Search")
+st.write("Type anything: 'dog', 'birthday', 'red car', 'happy family'")
 
-# 2. Title and Description
-st.title("📸 My Photo Gallery")
-st.write("A collection of my favorite moments.")
-
-# 3. Path to your images
-IMAGE_FOLDER = 'images'
-
-# 4. Logic to find images
-def load_images():
-    if not os.path.exists(IMAGE_FOLDER):
-        os.makedirs(IMAGE_FOLDER) # Creates the folder if it doesn't exist
-        return []
+# 2. Load Resources (Cached so it doesn't reload every time)
+@st.cache_resource
+def load_resources():
+    # Load the model only for TEXT encoding (lighter)
+    model = SentenceTransformer('clip-ViT-B-32')
     
-    # Get all files that end with .png, .jpg, or .jpeg
-    files = os.listdir(IMAGE_FOLDER)
-    image_files = [f for f in files if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
-    return image_files
+    # Load the pre-computed image vectors
+    if os.path.exists('features.pkl'):
+        with open('features.pkl', 'rb') as f:
+            image_data = pickle.load(f)
+        return model, image_data
+    return model, {}
 
-images = load_images()
+try:
+    model, image_data = load_resources()
+except Exception as e:
+    st.error("Could not load AI model. Make sure features.pkl is uploaded!")
+    st.stop()
 
-# 5. Display Images
-if not images:
-    st.info("No photos found yet! Upload them to the 'images' folder.")
+# 3. Search Logic
+IMAGE_FOLDER = 'images'
+query = st.text_input("🔍 Search:", "")
+
+# Filter images
+filtered_images = []
+
+if not query:
+    # If empty, show all images
+    filtered_images = list(image_data.keys())
 else:
-    # Create a grid of columns (adjust the number 3 for more/less columns)
-    cols = st.columns(3) 
-    for idx, image_file in enumerate(images):
-        with cols[idx % 3]: # Cycles through columns 0, 1, 2
-            st.image(os.path.join(IMAGE_FOLDER, image_file), use_container_width=True)
-            st.caption(f"Photo {idx + 1}")
+    # THE AI MAGIC:
+    # 1. Convert user text to vector
+    text_embedding = model.encode(query)
+    
+    # 2. Compare text vector to all image vectors
+    results = []
+    for filename, img_embedding in image_data.items():
+        # Calculate similarity score (higher is better)
+        score = util.cos_sim(text_embedding, img_embedding).item()
+        results.append((filename, score))
+    
+    # 3. Sort by score and keep best matches (e.g., score > 0.2)
+    results.sort(key=lambda x: x[1], reverse=True)
+    filtered_images = [img for img, score in results if score > 0.20]
+
+# 4. Display
+if not filtered_images:
+    st.warning("No matching photos found.")
+else:
+    st.caption(f"Found {len(filtered_images)} matches")
+    cols = st.columns(3)
+    for idx, filename in enumerate(filtered_images):
+        path = os.path.join(IMAGE_FOLDER, filename)
+        if os.path.exists(path):
+            with cols[idx % 3]:
+                st.image(path, use_container_width=True)
