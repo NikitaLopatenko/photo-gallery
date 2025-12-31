@@ -51,7 +51,7 @@ else:
     
     # 3. Sort by score and keep best matches (e.g., score > 0.2)
     results.sort(key=lambda x: x[1], reverse=True)
-    filtered_images = [(img, score) for img, score in results if score > 0.20]
+    filtered_images = [(img, score) for img, score in results if score > 0.21]
 
 # 4. Display
 if not filtered_images:
