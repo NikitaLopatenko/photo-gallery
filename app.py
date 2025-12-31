@@ -36,7 +36,7 @@ filtered_images = []
 
 if not query:
     # If empty, show all images
-    filtered_images = list(image_data.keys())
+    filtered_images = [(img, 1.0) for img in image_data.keys()]  # 100% match for all when no query
 else:
     # THE AI MAGIC:
     # 1. Convert user text to vector
@@ -49,9 +49,9 @@ else:
         score = util.cos_sim(text_embedding, img_embedding).item()
         results.append((filename, score))
     
-    # 3. Sort by score and keep best matches (e.g., score > 0.2)
+    # 3. Sort by score and keep best matches (e.g., score > 0.27)
     results.sort(key=lambda x: x[1], reverse=True)
-    filtered_images = [img for img, score in results if score > 0.20]
+    filtered_images = [(img, score) for img, score in results if score > 0.27]
 
 # 4. Display
 if not filtered_images:
@@ -59,8 +59,10 @@ if not filtered_images:
 else:
     st.caption(f"Found {len(filtered_images)} matches")
     cols = st.columns(3)
-    for idx, filename in enumerate(filtered_images):
+    for idx, (filename, score) in enumerate(filtered_images):
         path = os.path.join(IMAGE_FOLDER, filename)
         if os.path.exists(path):
             with cols[idx % 3]:
                 st.image(path, use_container_width=True)
+                match_percentage = int(score * 100)
+                st.caption(f"Match: {match_percentage}%")
